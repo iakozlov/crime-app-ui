@@ -142,6 +142,7 @@ function initApp(){
     var span = document.getElementsByClassName('close');
     var infoMenu = document.getElementById("info_menu");
     var crimeMenu = document.getElementById("crime_menu");
+    var jwtToken = "";
     infoMenu.onclick = function (){
         modal[0].style.display = "block";
         crimeMenu.disabled = true;
@@ -159,6 +160,63 @@ function initApp(){
         infoMenu.disabled = false;
     }
 
+    var registerButton = document.getElementById("sign_in button");
+    var loginButton = document.getElementById("sign_up button");
+    var usernameField = document.getElementById("username_input")
+    const signInUrl = "http://127.0.0.1:8080/users/register";
+    const signUpUrl = "http://127.0.0.1:8080/users/login";
+    var passwordField = document.getElementById("password_input")
+    registerButton.addEventListener("click", (e) =>{
+        e.preventDefault()
+        var registerRequest = new Object()
+        registerRequest.login = usernameField.value
+        registerRequest.password = passwordField.value
+        fetch(signInUrl, {
+            method: "POST",
+            body: JSON.stringify(registerRequest),
+            headers:{
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response =>{
+            if(response.status == 201){
+                alert("success")
+            }
+            if(response.status == 400){
+                alert("User already exists")
+            }
+            return response.text()
+        })
+        .catch(error =>{ 
+            console.log(error)})
+    }
+    );
+
+    loginButton.addEventListener("click", (e) =>{
+        e.preventDefault()
+        var registerRequest = new Object()
+        registerRequest.login = usernameField.value
+        registerRequest.password = passwordField.value
+        fetch(signUpUrl, {
+            method: "POST",
+            body: JSON.stringify(registerRequest),
+            headers:{
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.text())
+        .then( (data) => {
+            jwtToken = JSON.parse(data).token;
+            console.log(jwtToken);
+            alert("You are logged in successfully");
+        }
+        )
+        .catch(error =>{ 
+            alert(error)
+            console.log(error)})
+    }
+    )
+
 
     const geocoder = new google.maps.Geocoder();
     var uluru = {lat: 37.75740784154647, lng: -122.44584196135858};
@@ -169,9 +227,11 @@ function initApp(){
     //POST Request to get crime analysis
     inputForm.addEventListener("submit", (e) => {
         e.preventDefault()
+        var date = document.getElementById("date").value
+        var time = document.getElementById("appt").value+":00";
         var analysisRequest = new Object();
         analysisRequest.address = "some address";
-        analysisRequest.date = "2020-01-01 10:10:10";
+        analysisRequest.date = date + " "+ time;
         analysisRequest.lat = uluru.lng.toString();
         analysisRequest.lng = uluru.lat.toString();
         fetch(url, {
@@ -179,7 +239,7 @@ function initApp(){
             body: JSON.stringify(analysisRequest),
             headers:{
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsb2dpbiI6ImJvYmEiLCJleHAiOjE2NTI1MjQ2Mjd9.JL3Qcm2AGXj3_7Ua2JJrnOv3A6eh-NhRCjDOTSk1p8I',
+                'Authorization': 'Bearer ' + jwtToken,
                 'Refer': 'http://127.0.0.1:8000/crime/analysis',
             }
         }).then(
@@ -216,7 +276,7 @@ function initApp(){
             method: "POST",
             headers:{
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsb2dpbiI6ImJvYmEiLCJleHAiOjE2NTI1MjY1Mjh9.9fQs3PPJ3MNiiBmAFkPdg08ktv_dz6TZ_8HbOJziYzQ',
+                'Authorization': 'Bearer ' + jwtToken,
                 'Refer': 'http://127.0.0.1:8000/crime/history',
             }
         })
