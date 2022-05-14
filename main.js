@@ -113,21 +113,24 @@ function buildPieChart(first_crime, second_crime, third_crime, svg, name1, name2
         .style("font-size", 14)
 }
 function makeDataReadable(data){
-    data = JSON.stringify(data);
-    if(data == "[]"){
+    result = JSON.parse(data);
+    history = result.history;
+    console.log(result.history.history[0]);
+    var historyArray = result.history.history
+    if(historyArray.length == 0){
         return "You don't have any trips yet";
     }
-    data = data.replace(/['"]+/g, '');
-    data = data.replace(/\\/g, '');
-    var begin = data.lastIndexOf("[");
-    var end = data.indexOf("]");
-    var res_str = data.substr(begin+1, (end-begin)-1);
-    var splited_data = res_str.split("; ");
     document.getElementById("list_group").innerHTML = "";
-    for(var i = 0; i < splited_data.length; i++){
+    for(var i = 0; i < historyArray.length; i++){
         var node = document.createElement("LI");
+        var crimes = "";
+        for (var j = 0; j < historyArray[i].CrimeAnalysis.crimes.length; j++){
+            crimes = crimes + historyArray[i].CrimeAnalysis.crimes[j].name + " :" + historyArray[i].CrimeAnalysis.crimes[j].probability + "; "
+        }
+        var text = "Address: "+ historyArray[i].Address + "; Analysis: " + crimes + "Date: " + historyArray[i].RequestDate
+        console.log(text)
         node.className = "list-group-item";// Create a <li> node
-        var textnode = document.createTextNode((i+1).toString()+")"+splited_data[i]);         // Create a text node
+        var textnode = document.createTextNode((i+1).toString()+")"+text);         // Create a text node
         node.appendChild(textnode);
         document.getElementById("list_group").appendChild(node);
     }
@@ -159,77 +162,48 @@ function initApp(){
 
     const geocoder = new google.maps.Geocoder();
     var uluru = {lat: 37.75740784154647, lng: -122.44584196135858};
-    const url = "127.0.0.1:5555";
+    const url = "http://127.0.0.1:8000/crime/analysis";
     let inputForm = document.getElementById("inputForm");
     var svg;
     var submitButton = document.getElementById("submit_button");
     //POST Request to get crime analysis
     inputForm.addEventListener("submit", (e) => {
         e.preventDefault()
-        var time = document.getElementById("date").value;
-        geocoder.geocode({ location: uluru }, (results, status) => {
-            if (status === "OK") {
-                if (results[0]) {
-                    ;
-                    var geocodedAddressArr = (results[0].formatted_address).split(", ");
-                    var geocodedAddress = geocodedAddressArr.join(" ");
-                    if (time != "") {
-                        var time_h = document.getElementById("appt").value;
-                        var a;
-                        var myAlert = document.getElementById('myAlert')
-                        myAlert.style.visibility = "hidden";
-                        var a = new Object();
-                        a.lat = uluru.lat.toString();
-                        a.lng = uluru.lng.toString();
-                        a.date = time;
-                        if(time_h != ""){
-                            a.time = time_h+":00";
-                        }
-                        else {
-                            a.time = "12:00:00";
-                        }
-                        a.username = document.getElementById("usernameForTrips").value;
-                        a.address = geocodedAddress;
-                        submitButton.disabled = true;
-                        fetch(url, {
-                            method: "POST",
-                            body: JSON.stringify(a),
-                            headers:{
-                                'Content-Type': 'application/json'
-                            }
-                        }).then(
-                            response => response.text()
-                        ).then(
-                            (data) => {
-                                data = JSON.stringify(data);
-                                data = data.replace(/\\/g, '');
-                                data = data.replace('r','');
-                                data = data.replace(/['"]+/g, '');
-                                buildPieChart(parseFloat(data.split(";")[0].split(":")[1]),
-                                    parseFloat(data.split(";")[1].split(":")[1]),
-                                    parseFloat(data.split(";")[2].split(":")[1]), svg,
-                                    data.split(";")[0].split(":")[0],
-                                    data.split(";")[1].split(":")[0],
-                                    data.split(";")[2].split(":")[0]);
-                                submitButton.disabled = false;
-                            }
-
-                        ).catch(
-                            error => console.error(error)
-                        )
-
-                    } else {
-                        var myAlert = document.getElementById('myAlert');
-                        myAlert.innerText = "You should enter date of travelling.";
-                        myAlert.style.visibility = "visible";
-                    }
-                } else {
-                    alert("No results found");
-                }
-            } else {
-                alert("Geocoder failed due to: " + status);
+        var analysisRequest = new Object();
+        analysisRequest.address = "some address";
+        analysisRequest.date = "2020-01-01 10:10:10";
+        analysisRequest.lat = uluru.lng.toString();
+        analysisRequest.lng = uluru.lat.toString();
+        fetch(url, {
+            method: "POST",
+            body: JSON.stringify(analysisRequest),
+            headers:{
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsb2dpbiI6ImJvYmEiLCJleHAiOjE2NTI1MjQ2Mjd9.JL3Qcm2AGXj3_7Ua2JJrnOv3A6eh-NhRCjDOTSk1p8I',
+                'Refer': 'http://127.0.0.1:8000/crime/analysis',
             }
-        });
+        }).then(
+            response => response.text()
+        ).then(
+            (data) => {
+                console.log(data);
+                var result = JSON.parse(data)
+                var array = result.analysis.crimes
+                console.log(array[0].probability)
+                buildPieChart(
+                    array[0].probability,
+                    array[1].probability,
+                    array[2].probability,
+                    svg,
+                    array[0].name,
+                    array[1].name,
+                    array[2].name);
+                submitButton.disabled = false;
+            }
+
+        ).catch(
+            error => console.error(error)
+        )
 
     });
 
@@ -238,27 +212,24 @@ function initApp(){
     //GET Request to get history of requests
     historyForm.addEventListener("submit", (e) => {
         e.preventDefault()
-        var name = document.getElementById("username").value;
-        var myAlert = document.getElementById('myAlert');
-        myAlert.style.visibility = "hidden";
-        if(name.trim() != "") {
-            tripsMessage.setAttribute('value', name);
-            const formData = new FormData(historyForm)
-            fetch("http://127.0.0.1:5555/reg" + "?username=" + name)
-                .then(
-                    response => response.text())
-                .then(
-                    (data) => {
-                        makeDataReadable(data);
-                    }
-                ).catch(
-                error => console.error(error)
-            )
-        } else{
-            var myAlert = document.getElementById('myAlert');
-            myAlert.innerText = "Name shouldn't be empty.";
-            myAlert.style.visibility = "visible";
-        }
+        fetch("http://127.0.0.1:8000/crime/history", {
+            method: "POST",
+            headers:{
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsb2dpbiI6ImJvYmEiLCJleHAiOjE2NTI1MjY1Mjh9.9fQs3PPJ3MNiiBmAFkPdg08ktv_dz6TZ_8HbOJziYzQ',
+                'Refer': 'http://127.0.0.1:8000/crime/history',
+            }
+        })
+        .then(
+            response => response.text())
+        .then(
+            (data) => {
+                console.log(data);
+                makeDataReadable(data);
+            }
+        ).catch(
+        error => console.error(error)
+    )
 
     });
 }
