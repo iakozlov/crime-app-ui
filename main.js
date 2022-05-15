@@ -163,7 +163,7 @@ function initApp(){
     var registerButton = document.getElementById("sign_in button");
     var loginButton = document.getElementById("sign_up button");
     var usernameField = document.getElementById("username_input")
-    const signInUrl = "http://127.0.0.1:8000/users/register";
+    const signInUrl = "http://127.0.0.1:8000/users/registry";
     const signUpUrl = "http://127.0.0.1:8000/users/login";
     var passwordField = document.getElementById("password_input")
     registerButton.addEventListener("click", (e) =>{
