@@ -11,6 +11,7 @@
     <link rel="stylesheet" type="text/css" href="styles.css?nwewerrrwwersion"/>
     <title>Test Server</title>
     <script src="https://unpkg.com/d3@6.7.0/dist/d3.min.js"></script>
+    <script src="https://api-maps.yandex.ru/2.1/?apikey=2e8328f9-6cf9-4977-885f-86428e6d58f0&lang=ru_RU" type="text/javascript"></script>
 </head>
 <body>
 <nav>
@@ -19,8 +20,8 @@
         <li><a class="active" id="crime_menu">Crime</a></li>
         <button id="sign_in button">Sign in</button>
         <button id="sign_up button">Sign up</button>
-        <input id="username_input"></input>
-        <input id="password_input"></input>
+        <input id="username_input" placeholder="Username"></input>
+        <input id="password_input" placeholder="Password"></input>
     </ul>
     <div id="infoModal" class="modal">
         <div class="modal-content">
@@ -114,10 +115,6 @@
     <p>Igor Gogarev github: iogogarev</p>
     <p>Ivan Kozlov github: iakozlov</p>
 </div>
-<script
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBYF1v2BQUumswxd-6tY4yLNJJqrai5ZHs&callback=initMap"
-        async
-></script>
 
 
 </body>

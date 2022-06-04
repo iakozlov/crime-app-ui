@@ -1,46 +1,184 @@
-function initMap() {
+ymaps.ready(init);
+function init() {
     initApp();
-    var uluru = {lat: 37.75740784154647, lng: -122.44584196135858};
+    var jwtToken = "";
+    var centerCordinates = {lat: 37.75740784154647, lng: -122.44584196135858};
 
     let message = document.getElementById("message");
     message.style.visibility = 'hidden';
 
-// The map, centered at Uluru
-    const map = new google.maps.Map(document.getElementById("map"), {
-        zoom: 4,
-        center: uluru,
+    // init map
+    var map = new ymaps.Map("map", {
+    center: [centerCordinates.lat, centerCordinates.lng],
+    zoom: 12
     });
-// The marker, positioned at Uluru
-    var marker = new google.maps.Marker({
-        position: uluru,
-        map: map,
-    });
+    var myPlacemark = new ymaps.Placemark([centerCordinates.lat, centerCordinates.lng]);
+    map.geoObjects.add(myPlacemark);
+
     var btn = document.getElementById("submit_button");
     btn.innerHTML = "TRAVEL HERE";
-    map.addListener("click", (e) => {
+    map.events.add("click", function (e) {
         var myAlert = document.getElementById('myAlert');
+        var coords = e.get('coords');
+        var lat = coords[0];
+        var lng = coords[1];
         myAlert.style.visibility = "hidden";
-        if (e.latLng.lat() > 37.819975492297004|| e.latLng.lat < 37.7078790224135 ||
-            e.latLng.lng() <  -122.513642064265 || e.latLng.lng() > -122.365240723693) {
+        if (lat > 37.819975492297004|| lat < 37.7078790224135 ||
+            lng <  -122.513642064265 || lng > -122.365240723693) {
 
             var myAlert = document.getElementById('myAlert');
             myAlert.innerText = "Sorry, we don't have information about this area.";
             myAlert.style.visibility = "visible";
         } else {
-            marker.setMap(null);
-            marker = new google.maps.Marker({
-                position: e.latLng,
-                map: map,
-            });
-            uluru.lat = e.latLng.lat();
-            uluru.lng = e.latLng.lng();
-            map.setZoom(12);
-            map.panTo(e.latLng);
+            myPlacemark.geometry.setCoordinates(coords)
+            console.log(ymaps.geocode(myPlacemark.geometry.getCoordinates()));
+            centerCordinates.lat = lat;
+            centerCordinates.lng = lng;
             btn.style.visibility = 'visible';
         }
     });
+
+    const url = "http://127.0.0.1:8000/crime/analysis";
+    let inputForm = document.getElementById("inputForm");
+    var svg;
+    var submitButton = document.getElementById("submit_button");
+    //POST Request to get crime analysis
+    inputForm.addEventListener("submit", (e) => {
+        e.preventDefault()
+        var date = document.getElementById("date").value
+        var time = document.getElementById("appt").value+":00";
+        var address = ymaps.geocode(myPlacemark.geometry.getCoordinates()).geoObjects
+        if(address == undefined){
+            address = "Some address in SF"
+        }
+        else{
+            address = address[0]
+        }
+        var analysisRequest = new Object();
+        analysisRequest.address = address;
+        analysisRequest.date = date + " "+ time;
+        analysisRequest.lat = centerCordinates.lng.toString();
+        analysisRequest.lng = centerCordinates.lat.toString();
+        fetch(url, {
+            method: "POST",
+            body: JSON.stringify(analysisRequest),
+            headers:{
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + jwtToken,
+                'Refer': 'http://127.0.0.1:8000/crime/analysis',
+            }
+        }).then(
+            response => response.text()
+        ).then(
+            (data) => {
+                console.log(data);
+                var result = JSON.parse(data)
+                var array = result.analysis.crimes
+                console.log(array[0].probability)
+                buildPieChart(
+                    array[0].probability,
+                    array[1].probability,
+                    array[2].probability,
+                    svg,
+                    array[0].name,
+                    array[1].name,
+                    array[2].name);
+                submitButton.disabled = false;
+            }
+
+        ).catch(
+            error => console.error(error)
+        )
+
+    });
+
+    let historyForm = document.getElementById("getTripsForm");
+    let tripsMessage = document.getElementById("tripsMessage");
+    //POST Request to get history of requests
+    historyForm.addEventListener("submit", (e) => {
+        e.preventDefault()
+        fetch("http://127.0.0.1:8000/crime/history", {
+            method: "POST",
+            headers:{
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + jwtToken,
+                'Refer': 'http://127.0.0.1:8000/crime/history',
+            }
+        })
+        .then(
+            response => response.text())
+        .then(
+            (data) => {
+                console.log(data);
+                makeDataReadable(data);
+            }
+        ).catch(
+        error => console.error(error)
+    )
+
+    });
+
+    var registerButton = document.getElementById("sign_up button");
+    var loginButton = document.getElementById("sign_in button");
+    var usernameField = document.getElementById("username_input")
+    const signInUrl = "http://127.0.0.1:8000/users/login";
+    const signUpUrl = "http://127.0.0.1:8000/users/registry";
+    var passwordField = document.getElementById("password_input")
+    registerButton.addEventListener("click", (e) =>{
+        e.preventDefault()
+        var registerRequest = new Object()
+        registerRequest.login = usernameField.value
+        registerRequest.password = passwordField.value
+        //POST request to register
+        fetch(signUpUrl, {
+            method: "POST",
+            body: JSON.stringify(registerRequest),
+            headers:{
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response =>{
+            if(response.status == 201){
+                alert("Success")
+            }
+            if(response.status == 400){
+                alert("User already exists")
+            }
+            return response.text()
+        })
+        .catch(error =>{ 
+            console.log(error)})
+    }
+    );
+
+    loginButton.addEventListener("click", (e) =>{
+        e.preventDefault()
+        var registerRequest = new Object()
+        registerRequest.login = usernameField.value
+        registerRequest.password = passwordField.value
+        //POST request to log in
+        fetch(signInUrl, {
+            method: "POST",
+            body: JSON.stringify(registerRequest),
+            headers:{
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.text())
+        .then( (data) => {
+            jwtToken = JSON.parse(data).token;
+            console.log(jwtToken);
+            alert("You are logged in successfully");
+        }
+        )
+        .catch(error =>{ 
+            alert(error)
+            console.log(error)})
+    }
+    )
 }
 
+//function for building pie chart with crime analysis
 function buildPieChart(first_crime, second_crime, third_crime, svg, name1, name2, name3) {
     var width = 450
     height = 450
@@ -112,6 +250,8 @@ function buildPieChart(first_crime, second_crime, third_crime, svg, name1, name2
         .attr("font-family", "sans-serif")
         .style("font-size", 14)
 }
+
+// function for drawing user history
 function makeDataReadable(data){
     result = JSON.parse(data);
     history = result.history;
@@ -142,7 +282,6 @@ function initApp(){
     var span = document.getElementsByClassName('close');
     var infoMenu = document.getElementById("info_menu");
     var crimeMenu = document.getElementById("crime_menu");
-    var jwtToken = "";
     infoMenu.onclick = function (){
         modal[0].style.display = "block";
         crimeMenu.disabled = true;
@@ -160,136 +299,5 @@ function initApp(){
         infoMenu.disabled = false;
     }
 
-    var registerButton = document.getElementById("sign_in button");
-    var loginButton = document.getElementById("sign_up button");
-    var usernameField = document.getElementById("username_input")
-    const signInUrl = "http://127.0.0.1:8000/users/registry";
-    const signUpUrl = "http://127.0.0.1:8000/users/login";
-    var passwordField = document.getElementById("password_input")
-    registerButton.addEventListener("click", (e) =>{
-        e.preventDefault()
-        var registerRequest = new Object()
-        registerRequest.login = usernameField.value
-        registerRequest.password = passwordField.value
-        fetch(signInUrl, {
-            method: "POST",
-            body: JSON.stringify(registerRequest),
-            headers:{
-                'Content-Type': 'application/json',
-            }
-        })
-        .then(response =>{
-            if(response.status == 201){
-                alert("success")
-            }
-            if(response.status == 400){
-                alert("User already exists")
-            }
-            return response.text()
-        })
-        .catch(error =>{ 
-            console.log(error)})
-    }
-    );
-
-    loginButton.addEventListener("click", (e) =>{
-        e.preventDefault()
-        var registerRequest = new Object()
-        registerRequest.login = usernameField.value
-        registerRequest.password = passwordField.value
-        fetch(signUpUrl, {
-            method: "POST",
-            body: JSON.stringify(registerRequest),
-            headers:{
-                'Content-Type': 'application/json',
-            }
-        })
-        .then(response => response.text())
-        .then( (data) => {
-            jwtToken = JSON.parse(data).token;
-            console.log(jwtToken);
-            alert("You are logged in successfully");
-        }
-        )
-        .catch(error =>{ 
-            alert(error)
-            console.log(error)})
-    }
-    )
-
-
-    const geocoder = new google.maps.Geocoder();
-    var uluru = {lat: 37.75740784154647, lng: -122.44584196135858};
-    const url = "http://127.0.0.1:8000/crime/analysis";
-    let inputForm = document.getElementById("inputForm");
-    var svg;
-    var submitButton = document.getElementById("submit_button");
-    //POST Request to get crime analysis
-    inputForm.addEventListener("submit", (e) => {
-        e.preventDefault()
-        var date = document.getElementById("date").value
-        var time = document.getElementById("appt").value+":00";
-        var analysisRequest = new Object();
-        analysisRequest.address = "some address";
-        analysisRequest.date = date + " "+ time;
-        analysisRequest.lat = uluru.lng.toString();
-        analysisRequest.lng = uluru.lat.toString();
-        fetch(url, {
-            method: "POST",
-            body: JSON.stringify(analysisRequest),
-            headers:{
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + jwtToken,
-                'Refer': 'http://127.0.0.1:8000/crime/analysis',
-            }
-        }).then(
-            response => response.text()
-        ).then(
-            (data) => {
-                console.log(data);
-                var result = JSON.parse(data)
-                var array = result.analysis.crimes
-                console.log(array[0].probability)
-                buildPieChart(
-                    array[0].probability,
-                    array[1].probability,
-                    array[2].probability,
-                    svg,
-                    array[0].name,
-                    array[1].name,
-                    array[2].name);
-                submitButton.disabled = false;
-            }
-
-        ).catch(
-            error => console.error(error)
-        )
-
-    });
-
-    let historyForm = document.getElementById("getTripsForm");
-    let tripsMessage = document.getElementById("tripsMessage");
-    //GET Request to get history of requests
-    historyForm.addEventListener("submit", (e) => {
-        e.preventDefault()
-        fetch("http://127.0.0.1:8000/crime/history", {
-            method: "POST",
-            headers:{
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + jwtToken,
-                'Refer': 'http://127.0.0.1:8000/crime/history',
-            }
-        })
-        .then(
-            response => response.text())
-        .then(
-            (data) => {
-                console.log(data);
-                makeDataReadable(data);
-            }
-        ).catch(
-        error => console.error(error)
-    )
-
-    });
+ 
 }
